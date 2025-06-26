@@ -1,19 +1,11 @@
 import torch
-
 import torch.nn as nn
-
 import torch.optim as optim
-
 from torch.utils.data import DataLoader, Dataset
-
 import numpy as np
-
 import os
-
 from sklearn.cluster import KMeans
-
 from sklearn.decomposition import PCA
-
 from scipy import sparse
 
 
@@ -174,91 +166,53 @@ else:
 # --- Clustering ---
 
 embeddings_save_path = 'latent_embeddings.npy'
-
-num_clusters = 5
-
+num_clusters = 10
 
 if os.path.exists(embeddings_save_path):
-
-    latent_embeddings = np.load(embeddings_save_path)
-
+    loader = np.load(embeddings_save_path)
+    latent_embeddings = loader
 else:
-
     dataset = SparseTensorDataset(data_matrix_csr)
-
     dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
 
     input_dim = data_matrix_csr.shape[1]
-
     latent_dim = 64
-
     model = Autoencoder(input_dim, latent_dim)
-
     criterion = nn.MSELoss()
-
     optimizer = optim.Adam(model.parameters(), lr=0.001)
-
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
     model.to(device)
-
 
     model_save_path = 'autoencoder_model.pth'
 
+    epoch_losses = [] 
+
     if os.path.exists(model_save_path):
-
         model.load_state_dict(torch.load(model_save_path, map_location=device))
-
         model.eval()
-
     else:
-
         for epoch in range(50):
-
             total_loss = 0
-
             for data in dataloader:
-
                 inputs = data.to(device)
-
                 optimizer.zero_grad()
-
                 outputs, _ = model(inputs)
-
                 loss = criterion(outputs, inputs)
-
                 loss.backward()
-
                 optimizer.step()
-
                 total_loss += loss.item()
+            
+            avg_epoch_loss = total_loss / len(dataloader)
+            
+            epoch_losses.append(avg_epoch_loss) 
 
             if (epoch + 1) % 10 == 0 or epoch == 0:
-
-                print(f'Epoch [{epoch+1}/50], Loss: {total_loss / len(dataloader):.6f}')
-
+                print(f'Epoch [{epoch+1}/50], Loss: {avg_epoch_loss:.6f}')
 
         torch.save(model.state_dict(), model_save_path)
+        
+        np.save('autoencoder_training_losses.npy', np.array(epoch_losses)) 
 
-
-    latent_embeddings = []
-
-    model.eval()
-
-    with torch.no_grad():
-
-        for data in dataloader:
-
-            inputs = data.to(device)
-
-            _, encoded_output = model(inputs)
-
-            latent_embeddings.append(encoded_output.cpu().numpy())
-
-
-    latent_embeddings = np.concatenate(latent_embeddings, axis=0)
-
-    np.save(embeddings_save_path, latent_embeddings)
 
 
 # --- K-Means Clustering ---
@@ -283,7 +237,6 @@ else:
 
 embeddings_3d_save_path = 'embeddings_3d_for_plot.npy'
 
-
 if os.path.exists(embeddings_3d_save_path):
 
     embeddings_3d = np.load(embeddings_3d_save_path)
@@ -300,7 +253,6 @@ else:
 # --- Plotagem 3D ---
 
 import matplotlib.pyplot as plt
-
 from mpl_toolkits.mplot3d import Axes3D
 
 
