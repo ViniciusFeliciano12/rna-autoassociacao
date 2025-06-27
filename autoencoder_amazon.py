@@ -163,7 +163,7 @@ else:
     sparse.save_npz(matrix_file_path, data_matrix_csr)
 
 
-# --- Clustering ---
+# --- Autoencoding ---
 
 embeddings_save_path = 'latent_embeddings.npy'
 num_clusters = 10
